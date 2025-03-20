@@ -8,6 +8,7 @@ import { asyncHandler } from "./middlewares/asyncHandler";
 import { HTTPSTATUS } from "./config/http.config";
 import { errorHandler } from "./middlewares/errorHandler";
 import appRouter from "./routes";
+import passport from "./middlewares/passport";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -19,11 +20,13 @@ app.use(cors({
     credentials: true
 }))
 app.use(cookieParser())
+app.use(passport.initialize());
 
 app.get("/", asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    res.status(HTTPSTATUS.OK).json({
-        message: "Hello Subscriber!"
-    })
+    // res.status(HTTPSTATUS.OK).json({
+    //     message: "Hello Subscriber!"
+    // })
+    res.send('<a href="/api/v1/auth/google">Login with Google</a>');
 }))
 
 app.use(BASE_PATH, appRouter)
