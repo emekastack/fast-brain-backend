@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { HTTPSTATUS } from "../../config/http.config";
-import { loginSchema, registerSchema } from "../../common/validators/auth.validator";
+import { emailSchema, loginSchema, registerSchema, resetPasswordSchema, verificationEmailSchema } from "../../common/validators/auth.validator";
 import { AuthService } from "./auth.service";
-import { setAuthenticationCookies } from "../../common/utils/cookie";
+import { clearAuthenticationCookies, setAuthenticationCookies } from "../../common/utils/cookie";
+import { NotFoundException } from "../../common/utils/catch-errors";
 
 
 export class AuthController {
@@ -45,12 +46,21 @@ export class AuthController {
                 userAgent,
             });
 
-            const { user, accessToken, refreshToken, mfaRequired } =
+            const { user, accessToken, refreshToken, mfaRequired, emailNotVerified, message } =
                 await this.authService.login(body);
+
+            if (emailNotVerified) {
+                return res.status(HTTPSTATUS.OK).json({
+                    message,
+                    emailNotVerified,
+                    user,
+                });
+            }
+
 
             if (mfaRequired) {
                 return res.status(HTTPSTATUS.OK).json({
-                    message: "Verify MFA authentication",
+                    message,
                     mfaRequired,
                     user,
                 });
@@ -68,5 +78,75 @@ export class AuthController {
 
         }
     );
-    
+
+    /**
+     * @desc User verify email
+     * @route POST /auth/verify/email
+     * @access Public
+     */
+    public verifyEmail = asyncHandler(
+        async (req: Request, res: Response): Promise<any> => {
+            const { code } = verificationEmailSchema.parse(req.body);
+            await this.authService.verifyEmail(code);
+
+            return res.status(HTTPSTATUS.OK).json({
+                message: "Email verified successfully",
+            });
+        }
+    );
+
+
+    /**
+     * @desc User forgot password
+     * @route POST /auth/forgot-password
+     * @access Public
+     */
+    public forgotPassword = asyncHandler(
+        async (req: Request, res: Response): Promise<any> => {
+            const email = emailSchema.parse(req.body.email);
+            await this.authService.forgotPassword(email);
+
+            return res.status(HTTPSTATUS.OK).json({
+                message: "Password reset email sent",
+            });
+        }
+    );
+
+
+    /**
+     * @desc User reset password
+     * @route POST /auth/reset-password
+     * @access Public
+     */
+    public resetPassword = asyncHandler(
+        async (req: Request, res: Response): Promise<any> => {
+            const body = resetPasswordSchema.parse(req.body);
+
+            await this.authService.resetPassword(body);
+
+            return clearAuthenticationCookies(res).status(HTTPSTATUS.OK).json({
+                message: "Reset Password successfully",
+            });
+        }
+    );
+
+    /**
+     * @desc User logout
+     * @route POST /auth/logout
+     * @access Private
+     */
+    public logout = asyncHandler(
+        async (req: Request, res: Response): Promise<any> => {
+            const sessionId = (req as any).sessionId;
+            if (!sessionId) {
+                throw new NotFoundException("Session is invalid.");
+            }
+            await this.authService.logout(sessionId);
+            return clearAuthenticationCookies(res).status(HTTPSTATUS.OK).json({
+                message: "User logout successfully",                
+            });
+        }
+    );
+
+
 }

@@ -1,14 +1,16 @@
 import { ErrorCode } from "../../common/enums/error-code.enum";
 import { VerificationEnum } from "../../common/enums/verfication-code.enum";
-import { RegisterDto, LoginDto } from "../../common/interface/auth.interface";
-import { BadRequestException } from "../../common/utils/catch-errors";
-import { fortyFiveMinutesFromNow } from "../../common/utils/date-time";
+import { RegisterDto, LoginDto, resetPasswordDto } from "../../common/interface/auth.interface";
+import { hashValue } from "../../common/utils/bcrypt";
+import { BadRequestException, HttpException, InternalServerException, NotFoundException } from "../../common/utils/catch-errors";
+import { anHourFromNow, fortyFiveMinutesFromNow, threeMinutesAgo } from "../../common/utils/date-time";
 import { config } from "../../config/app.config";
+import { HTTPSTATUS } from "../../config/http.config";
 import SessionModel from "../../database/models/session.model";
 import UserModel from "../../database/models/user.model";
 import VerificationCodeModel from "../../database/models/verification.model";
 import { sendEmail } from "../../mailers/mailer";
-import { verifyEmailTemplate } from "../../mailers/templates/template";
+import { passwordResetTemplate, verifyEmailTemplate } from "../../mailers/templates/template";
 import { refreshTokenSignOptions, signJwtToken } from "../../utils/jwt";
 import { logger } from "../../utils/logger";
 
@@ -32,6 +34,7 @@ import { logger } from "../../utils/logger";
 // }
 
 export class AuthService {
+    // Register a new user and send verification email
     public async register(registerData: RegisterDto) {
         const { name, email, password } = registerData;
 
@@ -59,6 +62,7 @@ export class AuthService {
 
         console.log("Verification URL:", verificationUrl);
 
+        // TODO: Setup email sending
         // await sendEmail({
         //     to: newUser.email,
         //     ...verifyEmailTemplate(verificationUrl)
@@ -69,6 +73,7 @@ export class AuthService {
         }
     }
 
+    // Login user and handle MFA if required
     public async login(loginData: LoginDto) {
         const { email, password, userAgent } = loginData;
 
@@ -84,6 +89,43 @@ export class AuthService {
         if (!isPasswordValid) {
             logger.error(`Login failed: Invalid password for user with email ${email}`);
             throw new BadRequestException("Invalid email or password", ErrorCode.AUTH_USER_NOT_FOUND);
+        }
+
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            // Remove any existing verification codes for this user
+            await VerificationCodeModel.deleteMany({
+                userId: user._id,
+                type: VerificationEnum.EMAIL_VERIFICATION,
+            });
+
+            // Create a new verification code
+            const verification = await VerificationCodeModel.create({
+                userId: user._id,
+                type: VerificationEnum.EMAIL_VERIFICATION,
+                expiresAt: fortyFiveMinutesFromNow(),
+            });
+
+            const verificationUrl = `${config.APP_ORIGIN}/confirm-email?code=${verification.code}`;
+
+            // Send the verification email
+            console.log("Verification URL:", verificationUrl);
+            // TODO: Setup email sending
+            // await sendEmail({
+            //     to: user.email,
+            //     ...verifyEmailTemplate(verificationUrl),
+            // });
+
+            logger.info(`Verification email sent to ${user.email}`);
+
+            return {
+                user: null,
+                message: "Email not verified. Verification email sent.",
+                mfaRequired: false,
+                emailNotVerified: true,
+                accessToken: "",
+                refreshToken: "",
+            };
         }
 
         if (user.userPreferences.enable2FA) {
@@ -122,5 +164,121 @@ export class AuthService {
             refreshToken,
             mfaRequired: false,
         };
+    }
+
+    // Verify user email using the verification code
+    public async verifyEmail(code: string) {
+        const validCode = await VerificationCodeModel.findOne({
+            code,
+            type: VerificationEnum.EMAIL_VERIFICATION,
+            expiresAt: { $gt: new Date() },
+        })
+
+        if (!validCode) {
+            throw new BadRequestException("Invalid or expired verification code");
+        }
+
+        const updatedUser = await UserModel.findByIdAndUpdate(
+            validCode.userId,
+            { isEmailVerified: true },
+            { new: true }
+        )
+
+        if (!updatedUser) {
+            throw new BadRequestException(
+                "Unable to verify email address",
+                ErrorCode.VALIDATION_ERROR
+            );
+        }
+        await validCode.deleteOne();
+        return {
+            user: updatedUser,
+        };
+    }
+
+    public async forgotPassword(email: string) {
+        const user = await UserModel.findOne({
+            email: email,
+        });
+
+        if (!user) {
+            throw new NotFoundException("User not found");
+        }
+
+        //check mail rate limit is 2 emails per 3 or 10 min
+        const timeAgo = threeMinutesAgo();
+        const maxAttempts = 2;
+
+        const count = await VerificationCodeModel.countDocuments({
+            userId: user._id,
+            type: VerificationEnum.PASSWORD_RESET,
+            createdAt: { $gt: timeAgo },
+        })
+
+        if (count >= maxAttempts) {
+            throw new HttpException(
+                "Too many request, try again later",
+                HTTPSTATUS.TOO_MANY_REQUESTS,
+                ErrorCode.AUTH_TOO_MANY_ATTEMPTS
+            );
+        }
+
+        const expiresAt = anHourFromNow();
+        const validCode = await VerificationCodeModel.create({
+            userId: user._id,
+            type: VerificationEnum.PASSWORD_RESET,
+            expiresAt,
+        });
+
+        const resetLink = `${config.APP_ORIGIN}/reset-password?code=${validCode.code
+            }&exp=${expiresAt.getTime()}`;
+
+
+        await sendEmail({
+            to: user.email,
+            ...passwordResetTemplate(resetLink),
+        });
+
+        return {
+            url: resetLink,
+            emailId: user.email,
+            message: "Password reset link sent to your email",
+        };
+    }
+
+    public async resetPassword({ password, verificationCode }: resetPasswordDto) {
+        const validCode = await VerificationCodeModel.findOne({
+            code: verificationCode,
+            type: VerificationEnum.PASSWORD_RESET,
+            expiresAt: { $gt: new Date() },
+        });
+
+        if (!validCode) {
+            throw new NotFoundException("Invalid or expired verification code");
+        }
+
+        const hashedPassword = await hashValue(password);
+
+        const updatedUser = await UserModel.findByIdAndUpdate(validCode.userId, {
+            password: hashedPassword,
+        });
+
+        if (!updatedUser) {
+            throw new BadRequestException("Failed to reset password!");
+        }
+
+        await validCode.deleteOne();
+
+        await SessionModel.deleteMany({
+            userId: updatedUser._id,
+        });
+
+        return {
+            user: updatedUser,
+        };
+    }
+
+    public async logout(sessionId: string) {
+        return await SessionModel.findByIdAndDelete(sessionId);
     }
 }

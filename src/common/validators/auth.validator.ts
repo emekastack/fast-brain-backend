@@ -22,11 +22,11 @@ export const loginSchema = z.object({
   userAgent: z.string().optional(),
 });
 
-// export const verificationEmailSchema = z.object({
-//   code: verificationCodeSchema,
-// });
+export const verificationEmailSchema = z.object({
+  code: verificationCodeSchema,
+});
 
-// export const resetPasswordSchema = z.object({
-//   password: passwordSchema,
-//   verificationCode: verificationCodeSchema,
-// });
+export const resetPasswordSchema = z.object({
+  password: passwordSchema,
+  verificationCode: verificationCodeSchema,
+});
