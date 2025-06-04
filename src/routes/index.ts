@@ -1,10 +1,11 @@
-import { Request, Response, Router } from "express";
+import { Router } from "express";
+import { authenticateJWT } from "../common/strategies/jwt.strategy";
 import authRouter from "../modules/auth/auth.route";
-// import isAuthenticated from "../middlewares/isAuthenticated";
+import userRoute from "../modules/user/user.route";
 
 const appRouter = Router();
 
-appRouter.use("/auth",authRouter);
-// appRouter.get("/user", isAuthenticated)
+appRouter.use("/auth", authRouter);
+appRouter.use("/user", authenticateJWT, userRoute)
 
 export default appRouter;

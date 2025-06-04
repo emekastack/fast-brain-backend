@@ -1,24 +1,21 @@
-import {z} from "zod";
-import {ErrorRequestHandler, Response} from 'express';
-import { HTTPSTATUS } from "../config/http.config";
-// import { clearAuthenticationCookie, REFRESH_PATH } from "../utils/cookie";
-import { AppError } from "../utils/AppError";
+import { ErrorRequestHandler, Response } from 'express';
+import { z } from "zod";
 import { ErrorCode } from "../common/enums/error-code.enum";
 import { clearAuthenticationCookies, REFRESH_PATH } from "../common/utils/cookie";
+import { HTTPSTATUS } from "../config/http.config";
 
 const formatZodError = (res: Response, error: z.ZodError) => {
     const errors = error?.issues?.map((err) => ({
         field: err.path.join("."),
-        message: error.message,
+        message: err.message,
     }))
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
-        message: "validation Failed",
-        error: errors
+        error: "validation Failed",
+        message: errors
     })
 }
 
-export const  errorHandler: ErrorRequestHandler = (error, req, res, next): any => {
-    console.error(`Error occured on PATH: ${req.path}`, error);
+export const errorHandler: ErrorRequestHandler = (error, req, res, next): any => {
 
     if (req.path === REFRESH_PATH) {
         clearAuthenticationCookies(res)
@@ -26,7 +23,7 @@ export const  errorHandler: ErrorRequestHandler = (error, req, res, next): any =
 
     if (error instanceof SyntaxError) {
         return res.status(HTTPSTATUS.BAD_REQUEST).json({
-            message: "Invalid JSON format, please check your request body"
+            error: "Invalid JSON format, please check your request body"
         })
     }
 
@@ -34,15 +31,10 @@ export const  errorHandler: ErrorRequestHandler = (error, req, res, next): any =
         return formatZodError(res, error)
     }
 
-    if (error instanceof AppError) {
-        res.status(error.statusCode).json({
-            message: error.message,
-            errorCode: error.errorCode
-        })
-    }
 
-    return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
-        message: "Internal Server Error",
+
+    return res.status(error.statusCode || HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
         error: error?.message || "Unknown error occurred",
+        statusCode: error.errorCode || ErrorCode.INTERNAL_SERVER_ERROR,
     })
 }
