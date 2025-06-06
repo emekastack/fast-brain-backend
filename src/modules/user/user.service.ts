@@ -1,6 +1,5 @@
 import { NotFoundException } from "../../common/utils/catch-errors";
 import SessionModel from "../../database/models/session.model";
-import UserModel from "../../database/models/user.model";
 
 export class UserService {
   public async getSessionById(sessionId: string) {
