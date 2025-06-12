@@ -1,37 +1,17 @@
 import { ErrorCode } from "../../common/enums/error-code.enum";
 import { VerificationEnum } from "../../common/enums/verfication-code.enum";
-import { RegisterDto, LoginDto, resetPasswordDto } from "../../common/interface/auth.interface";
+import { LoginDto, RegisterDto, resetPasswordDto } from "../../common/interface/auth.interface";
 import { hashValue } from "../../common/utils/bcrypt";
-import { BadRequestException, HttpException, InternalServerException, NotFoundException, UnauthorizedException } from "../../common/utils/catch-errors";
+import { BadRequestException, HttpException, NotFoundException, UnauthorizedException } from "../../common/utils/catch-errors";
 import { anHourFromNow, calculateExpirationDate, fortyFiveMinutesFromNow, ONE_DAY_IN_MS, threeMinutesAgo } from "../../common/utils/date-time";
 import { config } from "../../config/app.config";
 import { HTTPSTATUS } from "../../config/http.config";
 import SessionModel from "../../database/models/session.model";
 import UserModel from "../../database/models/user.model";
 import VerificationCodeModel from "../../database/models/verification.model";
-import { sendEmail } from "../../mailers/mailer";
-import { passwordResetTemplate, verifyEmailTemplate } from "../../mailers/templates/template";
 import { refreshTokenSignOptions, RefreshTPayload, signJwtToken, verifyJwtToken } from "../../utils/jwt";
 import { logger } from "../../utils/logger";
 
-
-// export class UserService {
-//     public async findUser(googleId: string): Promise<any> {
-//         const user = await UserModel.findOne({googleId});
-//         return user;
-//     }
-
-//     public async createUser(user: any): Promise<any> {
-//         const newUser = new UserModel({
-//             email: user.email,
-//             name: user.name,
-//             photo: user.photo,
-//             googleId: user.googleId
-//         });
-//         const savedUser = await newUser.save();
-//         return savedUser;
-//     }
-// }
 
 export class AuthService {
     // Register a new user and send verification email
@@ -58,7 +38,7 @@ export class AuthService {
             expiresAt: fortyFiveMinutesFromNow()
         })
 
-        const verificationUrl = `${config.APP_ORIGIN}/auth/confirm-email?code=${verification.code}`;
+        const verificationUrl = `${config.APP_ORIGIN}/confirm-email?code=${verification.code}`;
 
         console.log("Verification URL:", verificationUrl);
 
@@ -106,7 +86,7 @@ export class AuthService {
                 expiresAt: fortyFiveMinutesFromNow(),
             });
 
-            const verificationUrl = `${config.APP_ORIGIN}/auth/confirm-email?code=${verification.code}`;
+            const verificationUrl = `${config.APP_ORIGIN}/confirm-email?code=${verification.code}`;
 
             // Send the verification email
             console.log("Verification URL:", verificationUrl);
@@ -141,19 +121,22 @@ export class AuthService {
         logger.info(`Creating session for user ID: ${user._id}`);
         const session = await SessionModel.create({
             userId: user._id,
-            userAgent,
+            name: user.name,
+            email: user.email,
+            userAgent,        
         })
 
         logger.info(`Signing tokens for user ID: ${user._id}`);
 
         const accessToken = signJwtToken({
             userId: user._id,
-            sessionId: session._id,
+            sessionId: session._id,            
         })
 
         const refreshToken = signJwtToken(
             {
                 sessionId: session._id,
+                role: session.role
             },
             refreshTokenSignOptions
         )
@@ -318,6 +301,7 @@ export class AuthService {
             ? signJwtToken(
                 {
                     sessionId: session._id,
+                    role: session.role
                 },
                 refreshTokenSignOptions
             )

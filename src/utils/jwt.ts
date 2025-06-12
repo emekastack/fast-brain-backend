@@ -3,6 +3,7 @@ import { UserDocument } from "../database/models/user.model";
 import { SessionDocument } from "../database/models/session.model";
 import { config } from "../config/app.config";
 import type { StringValue } from "ms";
+import { RoleType } from "../common/enums/role.enum";
 // import { SessionDocument } from "../../database/models/session.model";
 // import { UserDocument } from "../../database/models/user.model";
 // import { config } from "../../config/app.config";
@@ -10,10 +11,12 @@ import type { StringValue } from "ms";
 export type AccessTPayload = {
   userId: UserDocument["_id"];
   sessionId: SessionDocument["_id"];
+  // role: RoleType;
 };
 
 export type RefreshTPayload = {
   sessionId: SessionDocument["_id"];
+  role: RoleType;
 };
 
 type SignOptsAndSecret = SignOptions & {

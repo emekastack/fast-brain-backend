@@ -17,10 +17,10 @@ const formatZodError = (res: Response, error: z.ZodError) => {
 
 export const errorHandler: ErrorRequestHandler = (error, req, res, next): any => {
 
+
     if (req.path === REFRESH_PATH) {
         clearAuthenticationCookies(res)
     }
-
     if (error instanceof SyntaxError) {
         return res.status(HTTPSTATUS.BAD_REQUEST).json({
             error: "Invalid JSON format, please check your request body"

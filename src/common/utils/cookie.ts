@@ -21,8 +21,9 @@ export const getRefreshTokenCookieOptions = (): CookieOptions => {
   const expires = calculateExpirationDate(expiresIn);
   return {
     ...defaults,
-    expires,
+    expires,    
     path: REFRESH_PATH,
+    // path: "/"
   };
 };
 
@@ -50,5 +51,5 @@ export const setAuthenticationCookies = ({
 
 export const clearAuthenticationCookies = (res: Response): Response =>
   res.clearCookie("accessToken").clearCookie("refreshToken", {
-    path: REFRESH_PATH,
+    path: REFRESH_PATH
   });

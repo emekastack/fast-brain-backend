@@ -8,6 +8,7 @@ import { ErrorCode } from "../enums/error-code.enum";
 import { config } from "../../config/app.config";
 import passport, { PassportStatic } from "passport";
 import { userService } from "../../modules/user/user.module";
+import { clearAuthenticationCookies } from "../utils/cookie";
 
 interface JwtPayload {
   userId: string;
@@ -39,11 +40,19 @@ export const setupJwtStrategy = (passport: PassportStatic) => {
       try {
         const user = await userService.getSessionById(payload.sessionId);
         if (!user) {
+          if (req && req.res) {
+            console.log("DELETING: SETUPJWTSTRATEGY:1")
+            clearAuthenticationCookies(req.res)
+          }  
           return done(null, false);
         }
         req.sessionId = payload.sessionId;
         return done(null, user);
       } catch (error) {
+         if (req && req.res) {
+          console.log("DELETING: SETUPJWTSTRATEGY:2")
+            clearAuthenticationCookies(req.res)
+          } 
         return done(error, false);
       }
     })

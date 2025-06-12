@@ -5,5 +5,6 @@ import { userController } from "./user.module";
 const userRoute = Router();
 
 userRoute.get("/session", userController.getSession);
+userRoute.get("/quiz/:subject", userController.getQuiz);
 
 export default userRoute;
