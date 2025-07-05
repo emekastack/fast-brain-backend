@@ -8,28 +8,12 @@ export interface CourseDocument extends Document {
         _id: mongoose.Types.ObjectId;
         name: string;
     };
-    imageUrl?: string;
+    imageUrl: string;
     published: boolean;
-    price?: number;
-    lessons: Array<{
-        title: string;
-        content: string;
-        videoUrl?: string;
-        duration?: number; // in minutes
-    }>;
+    price?: number;    
     createdAt: Date;
     updatedAt: Date;
 }
-
-const lessonSchema = new Schema(
-    {
-        title: { type: String, required: true },
-        content: { type: String, required: true },
-        videoUrl: { type: String },
-        duration: { type: Number }, // in minutes
-    },
-    { _id: false }
-);
 
 const courseSchema = new Schema<CourseDocument>(
     {
@@ -42,11 +26,36 @@ const courseSchema = new Schema<CourseDocument>(
         },
         imageUrl: { type: String },
         published: { type: Boolean, default: false },
-        price: { type: Number },
-        lessons: [lessonSchema],
+        price: { type: Number },        
     },
     { timestamps: true }
 );
+
+// Virtual populate for lessons
+courseSchema.virtual('lessons', {
+    ref: 'Lesson',
+    localField: '_id',
+    foreignField: 'course',
+    options: { sort: { order: 1 } }
+});
+
+// Ensure virtuals are included when converting to JSON
+courseSchema.set('toJSON', { virtuals: true });
+courseSchema.set('toObject', { virtuals: true });
+
+// Pre-delete middleware to cascade delete lessons
+courseSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
+    const LessonModel = mongoose.model('Lesson');
+    await LessonModel.deleteMany({ course: this._id });
+    next();
+});
+
+courseSchema.pre('findOneAndDelete', { document: false, query: true }, async function(this: any, next: any) {
+    const courseId = this.getQuery()._id;
+    const LessonModel = mongoose.model('Lesson');
+    await LessonModel.deleteMany({ course: courseId });
+    next();
+});
 
 const CourseModel = mongoose.model<CourseDocument>("Course", courseSchema);
 

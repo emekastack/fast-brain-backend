@@ -76,7 +76,7 @@ export class CategoryController {
     public updateCategory = asyncHandler(
         async (req: Request, res: Response) => {
             const { id } = req.params;
-            const body = updateCategorySchema   .parse(req.body);
+            const body = updateCategorySchema.parse(req.body);
 
             const category = await this.categoryService.updateCategory(id, body);
 

@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
-import { asyncHandler } from "../../middlewares/asyncHandler";
-import { HTTPSTATUS } from "../../config/http.config";
+import mongoose from "mongoose";
+import { BadRequestException, NotFoundException } from "../../common/utils/catch-errors";
 import {
   createCourseSchema,
   updateCourseSchema,
 } from "../../common/validators/course.validator";
-import { NotFoundException } from "../../common/utils/catch-errors";
+import { HTTPSTATUS } from "../../config/http.config";
+import { uploadAndGetUrl } from "../../config/storj.config";
+import { asyncHandler } from "../../middlewares/asyncHandler";
 import { CourseService } from "./course.service";
 
 export class CourseController {
@@ -22,9 +24,19 @@ export class CourseController {
    */
   public createCourse = asyncHandler(async (req: Request, res: Response) => {
     const userId = (req as any).user.userId;
+    const image = req.file;
+    if (!image) {
+      throw new BadRequestException("Image is required");
+    }
+
+    const imageUrl = await uploadAndGetUrl(image.buffer, image.originalname, "demo-bucket");
+    if (!imageUrl) {
+      throw new BadRequestException("Failed to upload image");
+    }
     const body = createCourseSchema.parse({
       ...req.body,
-      instructor: userId,
+      instructor: userId.toString(),
+      imageUrl
     });
 
     const course = await this.courseService.createCourse(body);
@@ -45,7 +57,7 @@ export class CourseController {
       page = 1,
       limit = 10,
       category,
-      published,
+      // published,
       instructor,
       search,
     } = req.query;
@@ -54,8 +66,8 @@ export class CourseController {
       page: Number(page),
       limit: Number(limit),
       category: category as string,
-      published:
-        published === "true" ? true : published === "false" ? false : undefined,
+      // published:
+      //   published === "true" ? true : published === "false" ? false : undefined,
       instructor: instructor as string,
       search: search as string,
     };
@@ -75,13 +87,13 @@ export class CourseController {
    */
   public getCourseById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new NotFoundException("Invalid course id");
+    }
     const course = await this.courseService.getCourseById(id);
-
     if (!course) {
       throw new NotFoundException("Course not found");
     }
-
     return res.status(HTTPSTATUS.OK).json({
       message: "Course retrieved successfully",
       course,
@@ -96,7 +108,10 @@ export class CourseController {
   public updateCourse = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = (req as any).user.userId;
-    const body = updateCourseSchema.parse(req.body);
+    const body = updateCourseSchema.parse({
+      ...req.body,
+      imageUrl: req.file || null,
+    });
 
     const course = await this.courseService.updateCourse(id, body, userId);
 

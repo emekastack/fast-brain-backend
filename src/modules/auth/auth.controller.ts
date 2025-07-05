@@ -93,7 +93,7 @@ export class AuthController {
             });
         }
     );
-
+ 
 
     /**
      * @desc User forgot password

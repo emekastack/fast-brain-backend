@@ -1,13 +1,6 @@
 // src/common/validators/course.validator.ts
 import { z } from "zod";
 
-const lessonSchema = z.object({
-    title: z.string().min(1, "Lesson title is required"),
-    content: z.string().min(1, "Lesson content is required"),
-    videoUrl: z.string().url("Invalid video URL").optional(),
-    duration: z.number().positive("Duration must be positive").optional()
-});
-
 export const createCourseSchema = z.object({
     title: z.string()
         .min(5, "Course title must be at least 5 characters")
@@ -18,12 +11,10 @@ export const createCourseSchema = z.object({
         .max(2000, "Course description must not exceed 2000 characters"),
     instructor: z.string().min(1, "Instructor is required"),
     categoryId: z.string().min(1, "Category is required"),
-    imageUrl: z.string().url("Invalid image URL").optional(),
+    imageUrl: z.string().url("Invalid image URL").optional(),      
     price: z.number()
         .positive("Price must be positive")
-        .max(10000, "Price must not exceed $10,000")
         .optional(),
-    lessons: z.array(lessonSchema).optional()
 });
 
 export const updateCourseSchema = z.object({
@@ -37,10 +28,12 @@ export const updateCourseSchema = z.object({
         .max(2000, "Course description must not exceed 2000 characters")
         .optional(),
     categoryId: z.string().min(1, "Category is required").optional(),
-    imageUrl: z.string().url("Invalid image URL").optional(),
+    imageUrl: z.custom<Express.Multer.File>((val) => {
+        if (!val) return true; // Allow optional
+        return val instanceof Object && 'buffer' in val && 'originalname' in val;
+    }, "Invalid file format").optional(),    
     price: z.number()
         .positive("Price must be positive")
         .max(10000, "Price must not exceed $10,000")
         .optional(),
-    lessons: z.array(lessonSchema).optional()
 });

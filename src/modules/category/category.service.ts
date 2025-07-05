@@ -31,7 +31,8 @@ export class CategoryService {
      * Get all categories
      */
     public async getCategories() {
-        const categories = await CategoryModel.find({}).sort({ createdAt: -1 });
+        const categories = await CategoryModel.find({}).sort({ createdAt: -1 })
+        .select("-__v -createdAt -updatedAt");
         return categories;
     }
 

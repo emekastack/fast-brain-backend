@@ -1,35 +1,77 @@
-import { promisify } from "util";
-import { writeFile, unlink } from "fs";
 import { exec } from "child_process";
-import path from "path";
-import { CLIENT_RENEG_LIMIT } from "tls";
+import { Readable } from "stream";
+import { promisify } from "util";
+import { BadRequestException } from "../common/utils/catch-errors";
 
-const writeFileAsync = promisify(writeFile);
-const unlinkAsync = promisify(unlink);
 const execAsync = promisify(exec);
 
 export async function uploadAndGetUrl(
   buffer: Buffer,
   filename: string,
   bucket: string,
-  accessGrant: string
+  existingPath?: string
 ): Promise<string> {
-  const tempPath = path.join("/tmp", `${Date.now()}-${filename}`);
-  await writeFileAsync(tempPath, buffer);
+  let destinationPath: string;
+  
+  if (existingPath) {
+    // Use existing path to overwrite
+    destinationPath = `sj://${bucket}/${existingPath}`;
+  } else {
+    // Generate unique filename for new uploads
+    const fileExt = filename.split('.').pop() || '';
+    const uniqueFilename = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 8)}.${fileExt}`.replace(/\s+/g, '-');
+    destinationPath = `sj://${bucket}/${uniqueFilename}`;
+  }
 
+  const stream = Readable.from(buffer);
   try {
-    // Upload to Storj
-    const uploadCmd = `uplink cp ${tempPath} sj://${bucket}/${filename}`;
-    await execAsync(uploadCmd);
+    // Upload to Storj using stdin stream
+    await streamToUplinkExec(stream, destinationPath);
 
     // Generate shareable URL
-    const shareCmd = `uplink share --url --not-after=none sj://${bucket}/${filename}`;
+    const shareCmd = `uplink share --url --not-after=none ${destinationPath}`;
     const { stdout } = await execAsync(shareCmd);
 
     // Extract URL from uplink output
-    const url = stdout.split('URL       : ')[1].split('\n')[0].trim().replace('/s/', '/raw/');    
+    const url = stdout
+      .split("URL       : ")[1]
+      .split("\n")[0]
+      .trim()
+      .replace("/s/", "/raw/");
+
     return url;
-  } finally {
-    await unlinkAsync(tempPath).catch(() => {});
+  } catch (error: any) {
+    throw new BadRequestException(`Upload failed: ${error.message}`);
   }
+}
+
+async function streamToUplinkExec(
+  stream: Readable,
+  destination: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const uplinkProcess = exec(
+      `uplink cp -p 8 --parallelism-chunk-size 128M - "${destination}"`,
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(
+            new BadRequestException(
+              `Upload failed: ${error.message}\n${stderr}`
+            )
+          );
+        } else {
+          resolve();
+        }
+      }
+    );
+
+    // Pipe stream to process stdin
+    if (uplinkProcess.stdin) {
+      stream.pipe(uplinkProcess.stdin);
+    } else {
+      reject(new BadRequestException("Failed to access process stdin"));
+    }
+  });
 }

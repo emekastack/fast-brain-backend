@@ -3,8 +3,10 @@ import { ErrorCode } from "../../common/enums/error-code.enum";
 import CourseModel from "../../database/models/course.model";
 import CategoryModel from "../../database/models/category.model";
 import UserModel from "../../database/models/user.model";
-import { CourseFilters, CreateCourseDto, UpdateCourseDto } from "../../common/interface/category.inerface";
-// import { CreateCourseDto, UpdateCourseDto, CourseFilters } from "../../common/interface/course.interface";
+import { CourseFilters, CreateCourseDto, UpdateCourseDto } from "../../common/interface/course.interface";
+import mongoose from "mongoose";
+import { uploadImage } from "../../config/multer.config";
+import { uploadAndGetUrl } from "../../config/storj.config";
 
 export class CourseService {
     /**
@@ -46,10 +48,7 @@ export class CourseService {
                 name: category.name
             }
         });
-
-        // Populate instructor details
-        await course.populate('instructor', 'name email');
-
+        
         return course;
     }
 
@@ -57,18 +56,17 @@ export class CourseService {
      * Get all courses with filters and pagination
      */
     public async getCourses(filters: CourseFilters) {
-        const { page, limit, category, published, instructor, search } = filters;
+        const { page, limit, category, instructor, search } = filters;
 
         // Build query
-        const query: any = {};
+        const query: any = {   
+            //TODO: remove this after testing
+            // published: true
+        };
 
         if (category) {
             query['category._id'] = category;
-        }
-
-        if (published !== undefined) {
-            query.published = published;
-        }
+        }       
 
         if (instructor) {
             query.instructor = instructor;
@@ -86,7 +84,8 @@ export class CourseService {
 
         // Get courses with pagination
         const courses = await CourseModel.find(query)
-            .populate('instructor', 'name email')
+            .populate('instructor')
+            .select('title instructor category published imageUrl')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -111,7 +110,7 @@ export class CourseService {
      */
     public async getCourseById(courseId: string) {
         const course = await CourseModel.findById(courseId)
-            .populate('instructor', 'name email');
+            .populate('instructor');
 
         if (!course) {
             throw new NotFoundException("Course not found");
@@ -124,6 +123,9 @@ export class CourseService {
      * Update course
      */
     public async updateCourse(courseId: string, updateData: UpdateCourseDto, userId: string) {
+        if (!mongoose.Types.ObjectId.isValid(courseId)) {
+            throw new BadRequestException("Invalid course ID");
+        }
         const course = await CourseModel.findById(courseId);
 
         if (!course) {
@@ -135,6 +137,7 @@ export class CourseService {
             throw new BadRequestException("You can only update your own courses");
         }
 
+        const dataToUpdate: any = {};
         // If category is being updated, verify it exists and update embedded category
         if (updateData.categoryId) {
             const category = await CategoryModel.findById(updateData.categoryId);
@@ -142,15 +145,14 @@ export class CourseService {
                 throw new NotFoundException("Category not found");
             }
 
-            updateData.category = {
+            dataToUpdate.category = {
                 _id: category._id,
                 name: category.name
             };
-            delete updateData.categoryId;
         }
 
-        // If title is being updated, check for duplicates
-        if (updateData.title && updateData.title !== course.title) {
+         // If title is being updated, check for duplicates
+         if (updateData.title && updateData.title !== course.title) {
             const existingCourse = await CourseModel.findOne({
                 title: { $regex: new RegExp(`^${updateData.title}$`, 'i') },
                 instructor: userId,
@@ -165,11 +167,22 @@ export class CourseService {
             }
         }
 
+        if (updateData.imageUrl) {           
+            const existingFilename = course.imageUrl.split('/').pop();
+            const imageUrl = await uploadAndGetUrl(updateData.imageUrl.buffer, updateData.imageUrl.originalname, 'demo-bucket', existingFilename);            
+            if (imageUrl) {
+                dataToUpdate.imageUrl = imageUrl;
+            }
+        }       
+        
+        dataToUpdate.title = updateData.title;
+        dataToUpdate.description = updateData.description;
+
         const updatedCourse = await CourseModel.findByIdAndUpdate(
             courseId,
-            updateData,
+            {$set: dataToUpdate},
             { new: true, runValidators: true }
-        ).populate('instructor', 'name email');
+        );
 
         return updatedCourse;
     }
@@ -202,6 +215,7 @@ export class CourseService {
 
         const courses = await CourseModel.find({ instructor: instructorId })
             .populate('instructor', 'name email')
+            .populate('lessons')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -240,6 +254,7 @@ export class CourseService {
         await course.save();
 
         await course.populate('instructor', 'name email');
+        await course.populate('lessons');
         return course;
     }
 }

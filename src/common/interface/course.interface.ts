@@ -1,13 +1,3 @@
-// src/common/interface/category.interface.ts
-export interface CreateCategoryDto {
-    name: string;
-    description?: string;
-}
-
-export interface UpdateCategoryDto {
-    name?: string;
-    description?: string;
-}
 // src/common/interface/course.interface.ts
 export interface CreateCourseDto {
     title: string;
@@ -15,13 +5,9 @@ export interface CreateCourseDto {
     instructor: string;
     categoryId: string;
     imageUrl?: string;
+    // videoUrl?: string;
+    attachments?: string[];
     price?: number;
-    lessons?: Array<{
-        title: string;
-        content: string;
-        videoUrl?: string;
-        duration?: number;
-    }>;
 }
 
 export interface UpdateCourseDto {
@@ -32,21 +18,14 @@ export interface UpdateCourseDto {
         _id: any;
         name: string;
     };
-    imageUrl?: string;
+    imageUrl?: Express.Multer.File;    
     price?: number;
-    lessons?: Array<{
-        title: string;
-        content: string;
-        videoUrl?: string;
-        duration?: number;
-    }>;
 }
 
 export interface CourseFilters {
     page: number;
     limit: number;
     category?: string;
-    published?: boolean;
     instructor?: string;
     search?: string;
-}
+} 
