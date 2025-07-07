@@ -11,7 +11,7 @@ export interface CreateLessonDto {
 export interface UpdateLessonDto {
     title?: string;
     content?: string;
-    videoUrl?: string;
+    video?: Express.Multer.File;
     duration?: number;
     order?: number;
 } 

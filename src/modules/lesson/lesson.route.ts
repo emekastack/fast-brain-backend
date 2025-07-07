@@ -11,7 +11,7 @@ router.get("/:id", lessonController.getLessonById);
 
 // Protected routes (instructor only)
 router.post("/", teacherRoute, uploadVideo.single("video"), lessonController.createLesson);
-router.put("/:id", teacherRoute, lessonController.updateLesson);
+router.put("/:id", teacherRoute, uploadVideo.single("video"), lessonController.updateLesson);
 router.delete("/:id", teacherRoute, lessonController.deleteLesson);
 router.put("/courses/:courseId/lessons/reorder", teacherRoute, lessonController.reorderLessons);
 

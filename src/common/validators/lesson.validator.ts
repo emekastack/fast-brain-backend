@@ -33,7 +33,10 @@ export const updateLessonSchema = z.object({
         .min(1, "Lesson content is required")
         .max(10000, "Lesson content must not exceed 10,000 characters")
         .optional(),
-    videoUrl: z.string().url("Invalid video URL").optional(),
+    video: z.custom<Express.Multer.File>((val) => {
+            if (!val) return true; // Allow optional
+            return val instanceof Object && 'buffer' in val && 'originalname' in val;
+        }, "Invalid file format").optional(),
     duration: z.number()
         .positive("Duration must be positive")
         .max(480, "Duration must not exceed 8 hours (480 minutes)")

@@ -136,6 +136,12 @@ export class LessonService {
             }
         }
 
+        if (updateData.video) {
+            await uploadAndGetUrl(updateData.video.buffer, updateData.video.originalname, 'demo-bucket', lesson.videoUrl);            
+        }
+
+        delete updateData.video;
+
         const updatedLesson = await LessonModel.findByIdAndUpdate(
             lessonId,
             updateData,
