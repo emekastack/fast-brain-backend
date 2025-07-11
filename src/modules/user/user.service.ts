@@ -39,7 +39,8 @@ export class UserService {
   }
 
   // If not paid, allow only up to 5 quizzes
-  if (quiz.count < 5) {
+  if (quiz.count < 10) {
+    console.log("Quiz count")
     await quiz.increaseCount();
     return await getQiz(subject)
   } 
