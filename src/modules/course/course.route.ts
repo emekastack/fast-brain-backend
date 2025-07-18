@@ -7,10 +7,13 @@ import { uploadImage } from "../../config/multer.config";
 const courseRoutes = Router();
 
 // Public routes
-courseRoutes.get("/", courseController.getCourses);
 courseRoutes.get("/:id", courseController.getCourseById);
 
+// User routes
+courseRoutes.post("/:id/enroll", authenticateJWT, courseController.enrollInCourse);
+
 // Private routes (Instructor/Admin/Instructor-only as enforced in controller/service)
+courseRoutes.get("/", authenticateJWT, courseController.getCourses);
 courseRoutes.post("/", authenticateJWT, teacherRoute, uploadImage.single('image'), courseController.createCourse);
 courseRoutes.put("/:id", authenticateJWT, teacherRoute, uploadImage.single('image'), courseController.updateCourse);
 courseRoutes.delete("/:id", authenticateJWT, teacherRoute, courseController.deleteCourse);

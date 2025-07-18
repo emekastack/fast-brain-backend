@@ -4,7 +4,7 @@ export interface CreateCourseDto {
     description: string;
     instructor: string;
     categoryId: string;
-    imageUrl?: string;
+    imageUrl?: Express.Multer.File;
     // videoUrl?: string;
     attachments?: string[];
     price?: number;
@@ -25,6 +25,7 @@ export interface UpdateCourseDto {
 export interface CourseFilters {
     page: number;
     limit: number;
+    published?: boolean;
     category?: string;
     instructor?: string;
     search?: string;

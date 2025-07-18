@@ -1,14 +1,15 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { BadRequestException, NotFoundException } from "../../common/utils/catch-errors";
+import { NotFoundException } from "../../common/utils/catch-errors";
 import {
   createCourseSchema,
   updateCourseSchema,
 } from "../../common/validators/course.validator";
 import { HTTPSTATUS } from "../../config/http.config";
-import { uploadAndGetUrl } from "../../config/storj.config";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { CourseService } from "./course.service";
+import { Roles } from "../../common/enums/role.enum";
+import { UnauthorizedException } from "../../common/utils/catch-errors";
 
 export class CourseController {
   private courseService: CourseService;
@@ -23,27 +24,17 @@ export class CourseController {
    * @access Private (Instructor only)
    */
   public createCourse = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user.userId;
-    const image = req.file;
-    if (!image) {
-      throw new BadRequestException("Image is required");
-    }
-
-    const imageUrl = await uploadAndGetUrl(image.buffer, image.originalname, "demo-bucket");
-    if (!imageUrl) {
-      throw new BadRequestException("Failed to upload image");
-    }
+    const userId = (req as any).user.userId;    
     const body = createCourseSchema.parse({
       ...req.body,
-      instructor: userId.toString(),
-      imageUrl
+      instructor: userId.toString(),      
+      imageUrl: req.file,
     });
-
-    const course = await this.courseService.createCourse(body);
-
+    
+    const {message} = await this.courseService.createCourse(body);
+    
     return res.status(HTTPSTATUS.CREATED).json({
-      message: "Course created successfully",
-      course,
+      message
     });
   });
 
@@ -57,26 +48,38 @@ export class CourseController {
       page = 1,
       limit = 10,
       category,
-      // published,
+      published,
       instructor,
       search,
     } = req.query;
+
+    const userRole = (req as any).user?.role;
+
+    let publishedFilter: boolean | undefined;
+    if (userRole === Roles.ADMIN) {
+      publishedFilter = published == 'true' ? true : published == 'false' ? false : undefined;
+    } else {
+      publishedFilter = undefined;
+    }
+
 
     const filters = {
       page: Number(page),
       limit: Number(limit),
       category: category as string,
-      // published:
-      //   published === "true" ? true : published === "false" ? false : undefined,
+      published: publishedFilter,
       instructor: instructor as string,
       search: search as string,
     };
 
-    const result = await this.courseService.getCourses(filters);
+    const response = await this.courseService.getCourses(filters);
+
+
+    
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Courses retrieved successfully",
-      ...result,
+      ...response
     });
   });
 
@@ -109,15 +112,14 @@ export class CourseController {
     const { id } = req.params;
     const userId = (req as any).user.userId;
     const body = updateCourseSchema.parse({
-      ...req.body,
+      ...req.body,      
       imageUrl: req.file || null,
     });
-
-    const course = await this.courseService.updateCourse(id, body, userId);
+   
+    const {message} = await this.courseService.updateCourse(id, body, userId);
 
     return res.status(HTTPSTATUS.OK).json({
-      message: "Course updated successfully",
-      course,
+      message
     });
   });
 
@@ -176,4 +178,21 @@ export class CourseController {
       });
     }
   );
+
+  /**
+   * @desc Enroll user in a course
+   * @route POST /api/courses/:id/enroll
+   * @access Private (User only)
+   */
+  public enrollInCourse = asyncHandler(async (req: Request, res: Response) => {
+    const userId = (req as any).user.userId;
+    const { id: courseId } = req.params;
+  
+    const enrollment = await this.courseService.enrollUserInCourse(userId, courseId);
+  
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Enrolled successfully",
+      enrollment,
+    });
+  });
 }

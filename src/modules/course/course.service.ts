@@ -1,12 +1,12 @@
-import { BadRequestException, NotFoundException } from "../../common/utils/catch-errors";
-import { ErrorCode } from "../../common/enums/error-code.enum";
-import CourseModel from "../../database/models/course.model";
-import CategoryModel from "../../database/models/category.model";
-import UserModel from "../../database/models/user.model";
-import { CourseFilters, CreateCourseDto, UpdateCourseDto } from "../../common/interface/course.interface";
 import mongoose from "mongoose";
-import { uploadImage } from "../../config/multer.config";
+import { ErrorCode } from "../../common/enums/error-code.enum";
+import { CourseFilters, CreateCourseDto, UpdateCourseDto } from "../../common/interface/course.interface";
+import { BadRequestException, NotFoundException } from "../../common/utils/catch-errors";
 import { deleteFile, uploadAndGetUrl } from "../../config/storj.config";
+import CategoryModel from "../../database/models/category.model";
+import CourseModel from "../../database/models/course.model";
+import EnrollmentModel from "../../database/models/enrollment.model";
+import UserModel from "../../database/models/user.model";
 
 export class CourseService {
     /**
@@ -40,29 +40,38 @@ export class CourseService {
             );
         }
 
+        let image;
+        if (courseData.imageUrl) {
+            image = await uploadAndGetUrl(courseData.imageUrl.buffer, courseData.imageUrl.originalname, 'demo-bucket');
+        }
+
+        if (!image) {
+            throw new BadRequestException("Course image is required");
+        }
         // Create course with category info embedded
-        const course = await CourseModel.create({
+         await CourseModel.create({
             ...courseData,
+            imageUrl: image,
             category: {
                 _id: category._id,
                 name: category.name
             }
-        });
-        
-        return course;
+        });        
+        return {message: "Course created successfully"};
     }
 
     /**
      * Get all courses with filters and pagination
      */
     public async getCourses(filters: CourseFilters) {
-        const { page, limit, category, instructor, search } = filters;
+        const { page, limit, category, instructor, search, published } = filters;
 
         // Build query
-        const query: any = {   
-            //TODO: remove this after testing
-            // published: true
-        };
+        const query: any = {};
+
+        if (typeof published === "boolean") {
+            query.published = published;
+        }
 
         if (category) {
             query['category._id'] = category;
@@ -82,13 +91,54 @@ export class CourseService {
         // Calculate pagination
         const skip = (page - 1) * limit;
 
-        // Get courses with pagination
-        const courses = await CourseModel.find(query)
-            // .populate('instructor')
-            .select('title category imageUrl')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        // Get courses with enrolledCount using aggregation
+        const courses = await CourseModel.aggregate([
+            { $match: query },
+            {
+                $lookup: {
+                    from: "enrollments",
+                    localField: "_id",
+                    foreignField: "course",
+                    as: "enrollments"
+                }
+            },
+            {
+                $addFields: {
+                    enrolledCount: { $size: "$enrollments" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "instructor",
+                    foreignField: "_id",
+                    as: "instructorInfo"
+                }
+            },
+            {
+                $addFields: {
+                    instructorName: { $arrayElemAt: ["$instructorInfo.name", 0] }
+                }
+            },
+            {
+                $project: {
+                    title: 1,
+                    category: 1,
+                    imageUrl: 1,
+                    enrolledCount: 1,
+                    price: 1,
+                    published: 1,
+                    instructorName: 1,
+                    description: 1,
+                    updatedAt: 1,
+                    createdAt: 1,
+                }
+            },
+            // You can use 1 for ascending or -1 for descending
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit }
+        ]);
 
         // Get total count for pagination
         const total = await CourseModel.countDocuments(query);
@@ -109,14 +159,54 @@ export class CourseService {
      * Get course by ID
      */
     public async getCourseById(courseId: string) {
-        const course = await CourseModel.findById(courseId)
-            .populate('instructor');
+        const course = await CourseModel.aggregate([
+            { $match: { _id: new mongoose.Types.ObjectId(courseId) } },
+            {
+                $lookup: {
+                    from: "enrollments",
+                    localField: "_id",
+                    foreignField: "course",
+                    as: "enrollments"
+                }
+            },
+            {
+                $addFields: {
+                    enrolledCount: { $size: "$enrollments" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "instructor",
+                    foreignField: "_id",
+                    as: "instructorInfo"
+                }
+            },
+            {
+                $addFields: {
+                    instructorName: { $arrayElemAt: ["$instructorInfo.name", 0] }
+                }
+            },
+            {
+                $project: {
+                    title: 1,
+                    description: 1,                    
+                    category: 1,
+                    imageUrl: 1,
+                    published: 1,
+                    price: 1,
+                    enrolledCount: 1,
+                    instructorName: 1,
+                    createAt: 1,
+                }
+            }
+        ]);
 
-        if (!course) {
+        if (!course || course.length === 0) {
             throw new NotFoundException("Course not found");
         }
 
-        return course;
+        return course[0];
     }
 
     /**
@@ -169,20 +259,19 @@ export class CourseService {
 
         if (updateData.imageUrl) {           
             const existingFilename = course.imageUrl.split('/').pop();
-             await uploadAndGetUrl(updateData.imageUrl.buffer, updateData.imageUrl.originalname, 'demo-bucket', existingFilename);            
-            
+            await uploadAndGetUrl(updateData.imageUrl.buffer, updateData.imageUrl.originalname, 'demo-bucket', existingFilename);             
         }       
         
         dataToUpdate.title = updateData.title;
         dataToUpdate.description = updateData.description;
+        dataToUpdate.price = updateData.price;
 
-        const updatedCourse = await CourseModel.findByIdAndUpdate(
+        await CourseModel.findByIdAndUpdate(
             courseId,
-            {$set: dataToUpdate},
-            { new: true, runValidators: true }
+            {$set: dataToUpdate},           
         );
 
-        return updatedCourse;
+        return {message: "Course updated successfully"};
     }
 
     /**
@@ -267,4 +356,32 @@ export class CourseService {
             message: `Course ${course.published ? "published" : "unpublished"} successfully`,            
         };
     }
+
+    /**
+     * Enroll user in a course
+     */
+    public async enrollUserInCourse(courseId: string, userId: string) {
+        const course = await CourseModel.findById(courseId);
+        if (!course) throw new NotFoundException("Course not found");
+
+        // Prevent duplicate enrollments
+        const existingEnrollment = await EnrollmentModel.findOne({ user: userId, course: courseId });
+        if (existingEnrollment) throw new BadRequestException("Already enrolled in this course");
+
+        // Create enrollment
+        const enrollment = await EnrollmentModel.create({
+            user: userId,
+            course: courseId,
+        });
+
+        return enrollment;
+    }
+
+    /**
+     * Get user's enrolled courses
+     */
+    // public async getUserEnrolledCourses(userId: string) {
+    //     const enrollments = await EnrollmentModel.find({ user: userId }).populate('course');
+    //     return enrollments;
+    // }
 }

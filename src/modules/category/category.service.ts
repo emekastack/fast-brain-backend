@@ -31,8 +31,29 @@ export class CategoryService {
      * Get all categories
      */
     public async getCategories() {
-        const categories = await CategoryModel.find({}).sort({ createdAt: -1 })
-        .select("-__v -createdAt -updatedAt");
+        const categories = await CategoryModel.aggregate([
+            {
+                $lookup: {
+                    from: "courses",
+                    localField: "_id",
+                    foreignField: "category._id",
+                    as: "courses"
+                }
+            },
+            {
+                $addFields: {
+                    courseCount: { $size: "$courses" }
+                }
+            },
+            {
+                $project: {
+                    __v: 0,
+                    updatedAt: 0,
+                    courses: 0 // Exclude the actual courses array, only keep the count
+                }
+            },
+            { $sort: { createdAt: -1 } }
+        ]);
         return categories;
     }
 
