@@ -8,6 +8,7 @@ const courseRoutes = Router();
 
 // Public routes
 courseRoutes.get("/:id", courseController.getCourseById);
+courseRoutes.get("/all/courses", courseController.getCourses);
 
 // User routes
 courseRoutes.post("/:id/enroll", authenticateJWT, courseController.enrollInCourse);

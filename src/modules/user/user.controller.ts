@@ -1,50 +1,86 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { UserService } from "./user.service";
-import { BadRequestException, NotFoundException } from "../../common/utils/catch-errors";
+import {
+  BadRequestException,
+  NotFoundException,
+} from "../../common/utils/catch-errors";
 import { HTTPSTATUS } from "../../config/http.config";
-
+import { RoleType } from "../../common/enums/role.enum";
 
 export class UserController {
-    private userService: UserService;
+  private userService: UserService;
 
-    constructor(userService: UserService) {
-        this.userService = userService
+  constructor(userService: UserService) {
+    this.userService = userService;
+  }
+
+  public getSession = asyncHandler(async (req: Request, res: Response) => {
+    const sessionId = (req as any).sessionId;
+
+    if (!sessionId) {
+      throw new NotFoundException("Session ID not found. Please log in.");
     }
 
-    public getSession = asyncHandler(async (req: Request, res: Response) => {
-        const sessionId = (req as any).sessionId;
+    const user = await this.userService.getSessionById(sessionId);
 
-        if (!sessionId) {
-            throw new NotFoundException("Session ID not found. Please log in.");
-        }
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Session Retrieved Successfully",
+      user,
+    });
+  });
 
-        const user = await this.userService.getSessionById(sessionId);
+  public getQuiz = asyncHandler(async (req: Request, res: Response) => {
+    const subject = req.params.subject;
+    const userId = (req as any).user.userId;
 
-        return res.status(HTTPSTATUS.OK).json({
-            message: "Session Retrieved Successfully",
-            user,
-        })
-    })
+    if (!subject) {
+      throw new BadRequestException("Subject not set.");
+    }
 
-    public getQuiz = asyncHandler(async (req: Request, res: Response) => {
-        const subject = req.params.subject;
-        const userId = (req as any).user.userId;        
+    if (!userId) {
+      throw new NotFoundException("User ID not found. Please login in.");
+    }
 
-        if (!subject) {
-            throw new BadRequestException("Subject not set.");
-        }
+    const { data } = await this.userService.getQuiz(userId, subject);
 
-        if (!userId) {
-            throw new NotFoundException("User ID not found. Please login in.")
-        }
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Qizz Retrieved Successfully",
+      data,
+    });
+  });
 
-        const {data} = await this.userService.getQuiz(userId, subject);
+  /**
+   * @desc Get all users (Admin only)
+   * @route POST /api/courses/:id/enroll
+   * @access Private (User only)
+   */
+  public getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const { page = 1, limit = 10, search, role } = req.query;
 
-        return res.status(HTTPSTATUS.OK).json({
-            message: "Qizz Retrieved Successfully",
-            data,
-        })
+    const filters = {
+      page: Number(page),
+      limit: Number(limit),
+      search: search as string,
+      role: role as RoleType,
+    };
+    const users = await this.userService.getAllUsers(filters);
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Users retrieved successfully",
+      ...users,
+    });
+  });
 
-    })
+  /**
+   * @desc Get all users (Admin only)
+   * @route POST /api/courses/dashboard
+   * @access Private (User only)
+   */
+  public getDashboard = asyncHandler(async (req: Request, res: Response) => {
+    const dashboardData = await this.userService.getDashboard();
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Dashboard data retrieved successfully",
+      ...dashboardData,
+    });
+  });
 }

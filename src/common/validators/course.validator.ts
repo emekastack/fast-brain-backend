@@ -35,3 +35,7 @@ export const updateCourseSchema = z.object({
     }, "Invalid file format").optional(),    
     price: z.string().transform((val) => val === undefined ? undefined : Number(val)).optional(),
 });
+
+export const addToCartSchema = z.object({
+  courseId: z.string().min(1, "Product ID is required")  
+});

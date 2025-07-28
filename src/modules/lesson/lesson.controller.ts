@@ -84,10 +84,12 @@ export class LessonController {
   public updateLesson = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = (req as any).user.userId;
+
     const body = updateLessonSchema.parse({
       ...req.body,
       video: req.file
     });
+
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new NotFoundException("Invalid lesson id");

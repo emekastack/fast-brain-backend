@@ -49,7 +49,7 @@ export class CourseService {
             throw new BadRequestException("Course image is required");
         }
         // Create course with category info embedded
-         await CourseModel.create({
+         const course = await CourseModel.create({
             ...courseData,
             imageUrl: image,
             category: {
@@ -57,7 +57,7 @@ export class CourseService {
                 name: category.name
             }
         });        
-        return {message: "Course created successfully"};
+        return {courseId: course.id};
     }
 
     /**
@@ -142,7 +142,7 @@ export class CourseService {
 
         // Get total count for pagination
         const total = await CourseModel.countDocuments(query);
-
+        
         return {
             courses,
             pagination: {
@@ -197,7 +197,8 @@ export class CourseService {
                     price: 1,
                     enrolledCount: 1,
                     instructorName: 1,
-                    createAt: 1,
+                    createdAt: 1,
+                    updatedAt: 1
                 }
             }
         ]);
@@ -343,6 +344,7 @@ export class CourseService {
             throw new NotFoundException("Course not found");
         }
 
+        //TODO: allow only instructor and admin to toggle publish status
         // Check if user is the instructor of this course
         if (course.instructor.toString() !== userId.toString()) {
             throw new BadRequestException("You can only manage your own courses");

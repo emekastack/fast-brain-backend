@@ -31,10 +31,11 @@ export class CourseController {
       imageUrl: req.file,
     });
     
-    const {message} = await this.courseService.createCourse(body);
+    const {courseId} = await this.courseService.createCourse(body);
     
     return res.status(HTTPSTATUS.CREATED).json({
-      message
+      message: "Course created successfully",
+      courseId
     });
   });
 

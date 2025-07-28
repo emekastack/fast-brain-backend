@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { deleteFile } from "../../config/storj.config";
 
 export interface CourseDocument extends Document {
     title: string;
@@ -46,14 +47,44 @@ courseSchema.set('toObject', { virtuals: true });
 // Pre-delete middleware to cascade delete lessons
 courseSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
     const LessonModel = mongoose.model('Lesson');
-    await LessonModel.deleteMany({ course: this._id });
+    const lessons = await LessonModel.find({ courseId: this._id });
+    for (const lesson of lessons) {
+        if (lesson.videoUrl) {
+            try {                
+                const url = lesson.videoUrl;
+                const match = url?.split('/').pop();
+                if (match) {                    
+                    await deleteFile('demo-bucket', match);
+                }
+            } catch (err) {
+                // Log error but do not block lesson deletion
+                console.error('Failed to delete video file:', err);
+            }
+        }
+    }
+    await LessonModel.deleteMany({ courseId: this._id });
     next();
 });
 
 courseSchema.pre('findOneAndDelete', { document: false, query: true }, async function(this: any, next: any) {
     const courseId = this.getQuery()._id;
     const LessonModel = mongoose.model('Lesson');
-    await LessonModel.deleteMany({ course: courseId });
+    const lessons = await LessonModel.find({ courseId: courseId });
+    for (const lesson of lessons) {
+        if (lesson.videoUrl) {
+            try {                
+                const url = lesson.videoUrl;
+                const match = url?.split('/').pop();
+                if (match) {                    
+                    await deleteFile('demo-bucket', match);
+                }
+            } catch (err) {
+                // Log error but do not block lesson deletion
+                console.error('Failed to delete video file:', err);
+            }
+        }
+    }
+    await LessonModel.deleteMany({ courseId: courseId });
     next();
 });
 

@@ -37,9 +37,11 @@ export const updateLessonSchema = z.object({
             if (!val) return true; // Allow optional
             return val instanceof Object && 'buffer' in val && 'originalname' in val;
         }, "Invalid file format").optional(),
-    duration: z.number()
-        .positive("Duration must be positive")
-        .max(480, "Duration must not exceed 8 hours (480 minutes)")
+    duration: z.string()
+        .min(1, "Duration is required")
+        .max(50, "Duration must not exceed 50 characters")
+        .transform((val) => val ? Number(val) : undefined)
+        .refine((val) => val === undefined || !isNaN(val), { message: "Duration must be a number" })
         .optional(),
     order: z.number()
         .int("Order must be an integer")

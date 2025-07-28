@@ -4,7 +4,7 @@ import LessonModel from "../../database/models/lesson.model";
 import CourseModel from "../../database/models/course.model";
 import { CreateLessonDto, UpdateLessonDto } from "../../common/interface/lesson.interface";
 import mongoose from "mongoose";
-import { uploadAndGetUrl } from "../../config/storj.config";
+import { uploadAndGetUrl, deleteFile } from "../../config/storj.config";
 
 export class LessonService {
     /**
@@ -32,12 +32,10 @@ export class LessonService {
         dataToCreate.title = lessonData.title;
         dataToCreate.content = lessonData.content;
         dataToCreate.courseId = courseId;
-        dataToCreate.order = order;
         dataToCreate.videoUrl = null;
         dataToCreate.duration = lessonData.duration;
 
         // If order is not provided, set it to the next available order
-        // let lessonOrder = order;
         let lessonOrder = order;
         
         if (lessonOrder === undefined) {
@@ -65,8 +63,7 @@ export class LessonService {
             const videoUrl = await uploadAndGetUrl(lessonData.video.buffer, lessonData.video.originalname, 'demo-bucket');
             dataToCreate.videoUrl = videoUrl;
         }
-
-        console.log("DATA TO CREATE", dataToCreate);
+      
         const lesson = await LessonModel.create({
             ...dataToCreate,
             order: lessonOrder
@@ -85,8 +82,7 @@ export class LessonService {
         }
 
         const lessons = await LessonModel.find({ courseId: courseId })
-            .sort({ order: 1 })
-            .populate('courseId', 'title');
+            .sort({ order: 1 })            
 
         return lessons;
     }
@@ -166,6 +162,20 @@ export class LessonService {
         if ((lesson.courseId as any).instructor.toString() !== userId.toString()) {
             throw new BadRequestException("You can only delete lessons from your own courses");
         }
+        
+        // Delete video file if exists
+        if (lesson.videoUrl) {
+            try {                
+                const url = lesson.videoUrl;
+                const match = url?.split('/').pop();
+                if (match) {                    
+                    await deleteFile('demo-bucket', match);
+                }
+            } catch (err) {
+                // Log error but do not block lesson deletion
+                console.error('Failed to delete video file:', err);
+            }
+        }
 
         await LessonModel.findByIdAndDelete(lessonId);
         return { deleted: true };
@@ -203,8 +213,7 @@ export class LessonService {
 
         // Return updated lessons
         const updatedLessons = await LessonModel.find({ courseId: courseId })
-            .sort({ order: 1 })
-            .populate('courseId', 'title');
+            .sort({ order: 1 })            
 
         return updatedLessons;
     }

@@ -71,6 +71,10 @@ userSchema.methods.comparePassword = async function (value: string) {
   return compareValue(value, this.password);
 };
 
+userSchema.index({ name: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1 });
+
 userSchema.set("toJSON", {
   transform: function (doc, ret) {
     delete ret.password;

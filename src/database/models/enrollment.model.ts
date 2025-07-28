@@ -18,6 +18,8 @@ const enrollmentSchema = new Schema<EnrollmentDocument>(
 
 enrollmentSchema.index({ user: 1, course: 1 }, { unique: true });
 
+enrollmentSchema.index({ user: 1 });
+
 const EnrollmentModel = mongoose.model<EnrollmentDocument>("Enrollment", enrollmentSchema);
         
 export default EnrollmentModel;
