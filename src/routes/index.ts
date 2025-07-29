@@ -6,7 +6,7 @@ import courseRoutes from "../modules/course/course.route";
 import lessonRoutes from "../modules/lesson/lesson.route";
 import userRoute from "../modules/user/user.route";
 import cartRoutes from "../modules/cart/cart.route";
-import webhookRoutes from "../modules/payment/payment.route";
+import paymentRoute from "../modules/payment/payment.route";
 
 const appRouter = Router();
 
@@ -16,7 +16,7 @@ appRouter.use("/courses", courseRoutes);
 appRouter.use("/categories", categoryRoutes);
 appRouter.use("/lessons", authenticateJWT, lessonRoutes);
 appRouter.use("/cart", cartRoutes);
-appRouter.use("/webhook", webhookRoutes)
+appRouter.use("/payment", paymentRoute)
 
 
 export default appRouter;

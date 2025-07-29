@@ -3,11 +3,37 @@ import { Request, Response } from "express";
 import crypto from "crypto";
 import { config } from "../../config/app.config";
 import { HTTPSTATUS } from "../../config/http.config";
+import { PaymentService } from "./payment.service";
 
 export class PaymentController {
+  private paymentService: PaymentService;
+
+  constructor(paymentService: PaymentService) {
+    this.paymentService = paymentService;
+  }
+
+  /**
+   * @desc Initialize checkout payment
+   * @route GET /api/payment/checkout
+   * @access Private
+   */
+  public initializeCheckout = asyncHandler(
+    async (req: Request, res: Response) => {
+      const userId = (req as any).user?.userId;     
+      const { checkoutUrl } = await this.paymentService.initializeCheckout(
+        userId
+      );
+
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Checkout initialized successfully",
+        checkoutUrl,
+      });
+    }
+  );
+
   /**
    * @desc Handle Paystack webhook events
-   * @route POST /webhook/payment
+   * @route POST /webhook/paystack
    * @description This endpoint handles Paystack webhook events for payment status updates.
    * @access Public (but verified)
    */
@@ -44,29 +70,32 @@ export class PaymentController {
     });
   });
 
+  // Private methods to handle payment events
   private async handleSuccessfulPayment(data: any) {
-        const reference = data.reference;
-
-        try {
-            //TODO: Implement logic to handle successful payment
-            // await this.orderService.handleSuccessfulPayment(reference, data);
-            console.log(`Payment successful for reference: ${reference}`);
-        } catch (error: any) {
-            console.error(`Error handling successful payment for ${reference}:`, error);
-            throw error;
-        }
+    const reference = data.reference;
+    try {
+      await this.paymentService.verifyPayment(reference);
+      console.log(`Payment successful for reference: ${reference}`);
+    } catch (error: any) {
+      console.error(
+        `Error handling successful payment for ${reference}:`,
+        error
+      );
+      throw error;
     }
+  }
 
-    private async handleFailedPayment(data: any) {
-        const reference = data.reference;
+  // Private method to handle failed payments
+  private async handleFailedPayment(data: any) {
+    const reference = data.reference;
 
-        try {
-            // TODO: Implement logic to handle failed payment
-            // await this.orderService.handleFailedPayment(reference, data);
-            console.log(`Payment failed for reference: ${reference}`);
-        } catch (error: any) {
-            console.error(`Error handling failed payment for ${reference}:`, error);
-            throw error;
-        }
+    try {
+      // TODO: Implement logic to handle failed payment
+      // await this.orderService.handleFailedPayment(reference, data);
+      console.log(`Payment failed for reference: ${reference}`);
+    } catch (error: any) {
+      console.error(`Error handling failed payment for ${reference}:`, error);
+      throw error;
     }
+  }
 }
