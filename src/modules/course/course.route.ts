@@ -13,6 +13,7 @@ courseRoutes.get("/all/user-courses", courseController.getUserCourse);
 // User routes
 courseRoutes.post("/:id/enroll", authenticateJWT, courseController.enrollInCourse);
 courseRoutes.get("/user/enrolled-courses", authenticateJWT, courseController.getEnrolledCourses);
+courseRoutes.get("/user/:id/enrolled-course", authenticateJWT, courseController.getEnrolledCourseDetail);
 
 // Private routes (Instructor/Admin/Instructor-only as enforced in controller/service)
 courseRoutes.get("/", authenticateJWT, teacherRoute, courseController.getCourses);

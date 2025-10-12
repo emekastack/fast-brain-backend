@@ -192,6 +192,12 @@ export class CourseService {
         },
       },
       { $unwind: "$course" },
+      // ✅ Filter to only published courses
+      {
+        $match: {
+          "course.published": true,
+        },
+      },
       ...(search || category
         ? [
             {
@@ -233,13 +239,18 @@ export class CourseService {
           },
         },
       },
+      {
+        $addFields: {
+          completedLessonsCount: { $size: "$completedLessons" },
+        },
+      },
       ...(typeof isCompleted === "boolean"
         ? [
             {
               $match: {
                 $expr: {
                   [isCompleted ? "$eq" : "$ne"]: [
-                    "$completedLessons",
+                    "$completedLessonsCount",
                     "$lessonCount",
                   ],
                 },
@@ -260,7 +271,7 @@ export class CourseService {
           imageUrl: "$course.imageUrl",
           instructorName: "$instructor.name",
           lessonCount: 1,
-          completedLessons: 1,
+          completedLessonsCount: 1,
           category: "$course.category.name",
           updatedAt: 1,
         },
@@ -288,6 +299,108 @@ export class CourseService {
         hasPrevPage: page > 1,
       },
     };
+  }
+
+  /**
+   * Get enrolled courseDetail
+   */
+  public async getCourseDetailsFromEnrollment(
+    userId: string,
+    courseId: string
+  ) {
+    const result = await EnrollmentModel.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          course: new mongoose.Types.ObjectId(courseId),
+        },
+      },
+      {
+        $lookup: {
+          from: "courses",
+          localField: "course",
+          foreignField: "_id",
+          as: "course",
+        },
+      },
+      { $unwind: "$course" },
+      // ✅ Filter to only published courses
+      {
+        $match: {
+          "course.published": true,
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "course.instructor",
+          foreignField: "_id",
+          as: "instructor",
+        },
+      },
+      { $unwind: "$instructor" },
+      {
+        $lookup: {
+          from: "enrollments",
+          let: { courseId: "$course._id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$course", "$$courseId"] } } },
+            { $count: "count" },
+          ],
+          as: "enrollmentData",
+        },
+      },
+      {
+        $addFields: {
+          enrollmentCount: {
+            $ifNull: [{ $arrayElemAt: ["$enrollmentData.count", 0] }, 0],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "lessons",
+          let: { courseId: "$course._id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$courseId", "$$courseId"] },
+              },
+            },
+            { $sort: { order: 1 } }, // optional if lesson ordering matters
+            {
+              $project: {
+                title: 1,
+                description: 1,
+                content: 1,
+                duration: 1,
+                videoUrl: 1,
+              },
+            },
+          ],
+          as: "lessons",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          title: "$course.title",
+          description: "$course.description",
+          createdAt: "$course.createdAt",
+          instructor: "$instructor.name",
+          category: "$course.category",
+          enrollmentCount: 1,
+          completedLessons: 1,
+          lessons: 1,
+        },
+      },
+    ]);
+
+    if (!result.length) {
+      throw new Error("Enrollment or course not found");
+    }
+
+    return result[0];
   }
 
   /**

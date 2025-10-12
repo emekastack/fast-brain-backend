@@ -119,6 +119,27 @@ export class CourseController {
   );
 
   /**
+   * @desc Get all Enrolledc ourses
+   * @route GET /api/courses/user/:id/enrolled-course
+   * @access Public
+   */
+  public getEnrolledCourseDetail = asyncHandler(async (req: Request, res: Response) => {
+     const userId = (req as any).user.userId;
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new NotFoundException("Invalid course id");
+    }
+
+    const course = await this.courseService.getCourseDetailsFromEnrollment(userId, id);
+     return res.status(HTTPSTATUS.OK).json({
+      message: "Course retrieved successfully",
+      course,
+    });
+
+  })
+
+
+  /**
    * @desc Get course by ID
    * @route GET /api/courses/:id
    * @access Public

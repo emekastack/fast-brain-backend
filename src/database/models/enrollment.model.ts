@@ -3,14 +3,14 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface EnrollmentDocument extends Document {
   user: mongoose.Types.ObjectId;
   course: mongoose.Types.ObjectId; 
-  completedLessons: number;
+  completedLessons: mongoose.Types.ObjectId[];
 }
 
 const enrollmentSchema = new Schema<EnrollmentDocument>(
   {
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     course: { type: Schema.Types.ObjectId, ref: "Course", required: true },
-    completedLessons: { type: Number, default: 0 },
+    completedLessons: [{ type: Schema.Types.ObjectId, ref: "Lesson" }],
   },
   { timestamps: true }
 );
