@@ -1,15 +1,72 @@
 version: '3.8'
-services:  
-  app:    
+
+services:
+  # Backend Application
+  app:
     build:
       context: .
-      target: development    
+      dockerfile: Dockerfile
+      target: development
+    container_name: fastbrain-backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URI=${MONGODB_URI}
-      - NODE_ENV=${NODE_ENV}
-      - PORT=${PORT}
+      # Server
+      - PORT=8000
+      - NODE_ENV=${NODE_ENV:-development}
+      - BASE_PATH=/api/v1
+      
+      # MongoDB Atlas (Cloud)
+      - MONGO_URI=${MONGO_URI}
+      
+      # Redis Cloud
+      - REDIS_USERNAME=${REDIS_USERNAME}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      
+      # Application
+      - APP_ORIGIN=${APP_ORIGIN}
+      
+      # JWT
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN}
+      
+      # Email (Brevo)
+      - BREVO_HOST_URL=${BREVO_HOST_URL}
+      - BREVO_USER=${BREVO_USER}
+      - BREVO_PASS_KEY=${BREVO_PASS_KEY}
+      
+      # Email (Resend)
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL}
+      
+      # Cloudinary
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      
+      # Payment
+      - ALOC_ACCESS_TOKEN=${ALOC_ACCESS_TOKEN}
+      - PAYSTACK_SECRET_KEY=${PAYSTACK_SECRET_KEY}
+      - PAYSTACK_PUBLIC_KEY=${PAYSTACK_PUBLIC_KEY}
+      - PAYSTACK_BASE_URL=${PAYSTACK_BASE_URL}
     volumes:
       - .:/app
       - /app/node_modules
+      - /app/dist
+    networks:
+      - fastbrain-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  fastbrain-network:
+    driver: bridge
