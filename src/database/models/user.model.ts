@@ -76,7 +76,7 @@ userSchema.index({ email: 1 });
 userSchema.index({ role: 1 });
 
 userSchema.set("toJSON", {
-  transform: function (doc, ret) {
+  transform: function (doc, ret: any) {
     delete ret.password;
     delete ret.userPreferences.twoFactorSecret;
     return ret;

@@ -30,65 +30,65 @@ export class CartService {
 
   // ADD ITEM TO CART
   public async addToCart(userId: string, cartData: { courseId: string }) {
-  const { courseId } = cartData;
-  const userObjectId = new mongoose.Types.ObjectId(userId);
-  const courseObjectId = new mongoose.Types.ObjectId(courseId);
+    const { courseId } = cartData;
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+    const courseObjectId = new mongoose.Types.ObjectId(courseId);
 
-  // 1. Validate course
-  const course = await CourseModel.findById(courseId).select("price published").lean();
-  if (!course) {
-    throw new NotFoundException("Course not found");
-  }
+    // 1. Validate course
+    const course = await CourseModel.findById(courseId).select("price published").lean();
+    if (!course) {
+      throw new NotFoundException("Course not found");
+    }
 
-  // ✅ Check if course is published
-  if (!course.published) {
-    throw new BadRequestException("Course is not published");
-  }
-  
-  if (typeof course.price !== "number" || course.price <= 0) {
-    throw new BadRequestException("Course price is invalid");
-  }
+    // ✅ Check if course is published
+    if (!course.published) {
+      throw new BadRequestException("Course is not published");
+    }
 
-  // 2. Ensure not already enrolled
-  const isEnrolled = await EnrollmentModel.exists({
-    user: userObjectId,
-    course: courseObjectId,
-  });
-  if (isEnrolled) {
-    throw new BadRequestException("You are already enrolled in this course");
-  }
+    if (typeof course.price !== "number" || course.price <= 0) {
+      throw new BadRequestException("Course price is invalid");
+    }
 
-  // 3. Load or create cart as a document
-  let cart = await CartModel.findOne({ user: userObjectId });
-  if (!cart) {
-    cart = new CartModel({
+    // 2. Ensure not already enrolled
+    const isEnrolled = await EnrollmentModel.exists({
       user: userObjectId,
-      items: [],
+      course: courseObjectId,
     });
+    if (isEnrolled) {
+      throw new BadRequestException("You are already enrolled in this course");
+    }
+
+    // 3. Load or create cart as a document
+    let cart = await CartModel.findOne({ user: userObjectId });
+    if (!cart) {
+      cart = new CartModel({
+        user: userObjectId,
+        items: [],
+      });
+    }
+
+    // 4. Check if course is already in the cart
+    const alreadyInCart = cart.items.some((item) =>
+      item.course.equals(courseObjectId)
+    );
+    if (alreadyInCart) {
+      throw new BadRequestException("Course already exists in cart");
+    }
+
+    // 5. Enforce cart size limit
+    if (cart.items.length >= 10) {
+      throw new BadRequestException("Cart can only hold up to 10 items");
+    }
+
+    // 6. Add item to cart and save (triggering pre-save middleware)
+    cart.items.push({ course: courseObjectId, price: course.price } as any);
+    await cart.save(); // triggers totalPrice calculation
+
+    return {
+      message: "Item added to cart successfully",
+      cart,
+    };
   }
-
-  // 4. Check if course is already in the cart
-  const alreadyInCart = cart.items.some((item) =>
-    item.course.equals(courseObjectId)
-  );
-  if (alreadyInCart) {
-    throw new BadRequestException("Course already exists in cart");
-  }
-
-  // 5. Enforce cart size limit
-  if (cart.items.length >= 10) {
-    throw new BadRequestException("Cart can only hold up to 10 items");
-  }
-
-  // 6. Add item to cart and save (triggering pre-save middleware)
-  cart.items.push({ course: courseObjectId, price: course.price } as any);
-  await cart.save(); // triggers totalPrice calculation
-
-  return {
-    message: "Item added to cart successfully",
-    cart,
-  };
-}
 
 
   // REMOVE ITEM FROM CART
@@ -102,7 +102,7 @@ export class CartService {
 
     // Check if the item exists in the cart
     const itemExists = existingCart.items.some((item) => {
-      return item._id == productId;
+      return item._id.toString() === productId;
     });
 
     if (!itemExists) {
