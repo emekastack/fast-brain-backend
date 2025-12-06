@@ -1,6 +1,5 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import "dotenv/config";
 import express, { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
@@ -13,6 +12,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import passport from "./middlewares/passport";
 import redisClient, { connectRedis } from "./redis.client";
 import { initializeRateLimiters, getGlobalRateLimiter } from "./config/rate-limiter.config";
+
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
