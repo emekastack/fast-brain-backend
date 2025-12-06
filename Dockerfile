@@ -13,7 +13,7 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files from package.json and package-lock.json
 COPY package*.json ./
 
 # Install all dependencies (including dev dependencies)
