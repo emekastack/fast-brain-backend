@@ -193,6 +193,12 @@ export class CourseService {
         },
       },
       { $unwind: "$course" },
+      // ✅ Filter to only published courses
+      {
+        $match: {
+          "course.published": true,
+        },
+      },
       ...(search || category
         ? [
           {
@@ -232,6 +238,11 @@ export class CourseService {
           lessonCount: {
             $ifNull: [{ $arrayElemAt: ["$lessonData.lessonCount", 0] }, 0],
           },
+        },
+      },
+      {
+        $addFields: {
+          completedLessonsCount: { $size: "$completedLessons" },
         },
       },
       ...(typeof isCompleted === "boolean"

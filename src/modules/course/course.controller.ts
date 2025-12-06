@@ -95,8 +95,8 @@ export class CourseController {
         isCompleted == "true"
           ? true
           : isCompleted == "false"
-          ? false
-          : undefined;
+            ? false
+            : undefined;
 
       const filters = {
         page: Number(page),
@@ -110,7 +110,7 @@ export class CourseController {
         userId,
         filters
       );
-      
+
       return res.status(HTTPSTATUS.OK).json({
         message: "Courses retrieved successfully",
         ...response,
