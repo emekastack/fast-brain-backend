@@ -82,7 +82,7 @@ const startServer = async () => {
             }
         });
 
-        // Graceful shutdown
+        // Graceful shutdown app
         process.on('SIGTERM', () => {
             console.log('SIGTERM signal received: closing HTTP server');
             server.close(() => {
