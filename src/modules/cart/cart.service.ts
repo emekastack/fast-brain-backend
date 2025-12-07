@@ -101,8 +101,8 @@ export class CartService {
     }
 
     // Check if the item exists in the cart
-    const itemExists = existingCart.items.some((item) => {
-      return item._id.toString() === productId;
+    const itemExists = existingCart.items.some((item: any) => {
+      return item._id === productId;
     });
 
     if (!itemExists) {
