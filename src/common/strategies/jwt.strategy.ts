@@ -20,10 +20,7 @@ const options: StrategyOptionsWithRequest = {
     (req) => {
       const accessToken = req.cookies.accessToken;
       if (!accessToken) {
-        throw new UnauthorizedException(
-          "Unauthorized access token",
-          ErrorCode.AUTH_TOKEN_NOT_FOUND
-        );
+        return undefined;
       }
       return accessToken;
     },

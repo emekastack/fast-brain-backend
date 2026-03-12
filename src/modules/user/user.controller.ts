@@ -4,6 +4,7 @@ import { UserService } from "./user.service";
 import {
   BadRequestException,
   NotFoundException,
+  UnauthorizedException,
 } from "../../common/utils/catch-errors";
 import { HTTPSTATUS } from "../../config/http.config";
 import { RoleType } from "../../common/enums/role.enum";
@@ -19,7 +20,7 @@ export class UserController {
     const sessionId = (req as any).sessionId;
 
     if (!sessionId) {
-      throw new NotFoundException("Session ID not found. Please log in.");
+      throw new UnauthorizedException("Not authenticated. Please log in.");
     }
 
     const user = await this.userService.getSessionById(sessionId);
