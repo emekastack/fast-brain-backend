@@ -2,16 +2,11 @@ import jwt, { SignOptions, VerifyOptions } from "jsonwebtoken";
 import { UserDocument } from "../database/models/user.model";
 import { SessionDocument } from "../database/models/session.model";
 import { config } from "../config/app.config";
-import type { StringValue } from "ms";
 import { RoleType } from "../common/enums/role.enum";
-// import { SessionDocument } from "../../database/models/session.model";
-// import { UserDocument } from "../../database/models/user.model";
-// import { config } from "../../config/app.config";
 
 export type AccessTPayload = {
   userId: UserDocument["_id"];
   sessionId: SessionDocument["_id"];
-  // role: RoleType;
 };
 
 export type RefreshTPayload = {
@@ -19,49 +14,32 @@ export type RefreshTPayload = {
   role: RoleType;
 };
 
-type SignOptsAndSecret = SignOptions & {
-  secret: string;
+export const accessTokenSignOptions: SignOptions = {
+  expiresIn: "15m",
 };
 
-const defaults = {
-  audience: "user",
-};
-
-type ExpiresIn = number | undefined | StringValue;
-
-export const accessTokenSignOptions: SignOptsAndSecret = {
-  expiresIn: config.JWT.EXPIRES_IN as ExpiresIn,
-  secret: config.JWT.SECRET,
-};
-
-export const refreshTokenSignOptions: SignOptsAndSecret = {
-  expiresIn: config.JWT.REFRESH_EXPIRES_IN as ExpiresIn,
-  secret: config.JWT.REFRESH_SECRET,
+export const refreshTokenSignOptions: SignOptions = {
+  expiresIn: "30d",
 };
 
 export const signJwtToken = (
   payload: AccessTPayload | RefreshTPayload,
-  options?: SignOptsAndSecret
+  options?: SignOptions & { secret?: string }
 ) => {
-  const { secret, ...opts } = options || accessTokenSignOptions;
-  return jwt.sign(payload, secret, {
-    ...defaults,
-    ...opts,
-  });
+  const secret = options?.secret || config.JWT.SECRET;
+  const opts = options ? { ...options } : accessTokenSignOptions;
+  return jwt.sign(payload, secret, opts as any);
 };
 
 export const verifyJwtToken = <TPayload extends object = AccessTPayload>(
   token: string,
-  options?: VerifyOptions & { secret: string }
+  options?: VerifyOptions & { secret?: string }
 ) => {
-
   try {
-    const { secret = config.JWT.SECRET, ...opts } = options || {};
-    const payload = jwt.verify(token, secret, {
-      ...defaults,
-      ...opts,
-    }) as TPayload;
-    return { payload };    
+    const secret = options?.secret || config.JWT.SECRET;
+    const opts = options ? { ...options } : {};
+    const payload = jwt.verify(token, secret, opts as any) as TPayload;
+    return { payload };
   } catch (err: any) {
     return {
       error: err.message,

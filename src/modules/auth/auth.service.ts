@@ -273,7 +273,7 @@ export class AuthService {
     // Refresh token
     public async refreshToken(refreshToken: string) {
         const { payload, error } = verifyJwtToken<RefreshTPayload>(refreshToken, {
-            secret: refreshTokenSignOptions.secret,
+            secret: config.JWT.REFRESH_SECRET,
         });
         if (!payload) {
             console.log(`Refresh token error:`, error);
