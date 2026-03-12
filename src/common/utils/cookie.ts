@@ -12,8 +12,8 @@ export const REFRESH_PATH = `${config.BASE_PATH}/auth/refresh-token`;
 
 const defaults: CookieOptions = {
   httpOnly: true,
-  secure: config.NODE_ENV === "production" ? true : false,
-  sameSite: config.NODE_ENV === "production" ? "strict" : "lax",
+  secure: config.NODE_ENV === "production",
+  sameSite: "lax",
 };
 
 export const getRefreshTokenCookieOptions = (): CookieOptions => {
@@ -22,8 +22,7 @@ export const getRefreshTokenCookieOptions = (): CookieOptions => {
   return {
     ...defaults,
     expires,    
-    path: REFRESH_PATH,
-    // path: "/"
+    path: "/",
   };
 };
 
@@ -51,5 +50,5 @@ export const setAuthenticationCookies = ({
 
 export const clearAuthenticationCookies = (res: Response): Response =>
   res.clearCookie("accessToken").clearCookie("refreshToken", {
-    path: REFRESH_PATH
+    path: "/"
   });

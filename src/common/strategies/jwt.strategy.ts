@@ -18,7 +18,7 @@ interface JwtPayload {
 const options: StrategyOptionsWithRequest = {
   jwtFromRequest: ExtractJwt.fromExtractors([
     (req) => {
-      const accessToken = req.cookies.accessToken;
+      const accessToken = req.cookies?.accessToken;
       if (!accessToken) {
         return undefined;
       }
@@ -38,7 +38,6 @@ export const setupJwtStrategy = (passport: PassportStatic) => {
         const user = await userService.getSessionById(payload.sessionId);
         if (!user) {
           if (req && req.res) {
-            console.log("DELETING: SETUPJWTSTRATEGY:1")
             clearAuthenticationCookies(req.res)
           }  
           return done(null, false);
@@ -47,7 +46,6 @@ export const setupJwtStrategy = (passport: PassportStatic) => {
         return done(null, user);
       } catch (error) {
          if (req && req.res) {
-          console.log("DELETING: SETUPJWTSTRATEGY:2")
             clearAuthenticationCookies(req.res)
           } 
         return done(error, false);

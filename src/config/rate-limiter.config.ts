@@ -24,7 +24,7 @@ export const initializeRateLimiters = () => {
             sendCommand: (...args: string[]) => redisClient.sendCommand(args),
         }),
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 20,
+        max: 100,
         message: "Too many authentication attempts from this IP, please try again after 15 minutes",
         legacyHeaders: false,
         standardHeaders: true,

@@ -16,10 +16,12 @@ export type RefreshTPayload = {
 
 export const accessTokenSignOptions: SignOptions = {
   expiresIn: "15m",
+  audience: ["user"],
 };
 
 export const refreshTokenSignOptions: SignOptions = {
   expiresIn: "30d",
+  audience: ["user"],
 };
 
 export const signJwtToken = (

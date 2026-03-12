@@ -65,6 +65,7 @@ export class AuthController {
                     user,
                 });
             }
+            
             return setAuthenticationCookies({
                 res,
                 accessToken,

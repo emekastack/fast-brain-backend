@@ -20,9 +20,17 @@ export class PaymentController {
   public initializeCheckout = asyncHandler(
     async (req: Request, res: Response) => {
       const userId = (req as any).user?.userId;
-      const initResult = await this.paymentService.initializeCheckout(
-        userId
-      );
+      console.log("Checkout - userId:", userId);
+      
+      let initResult;
+      try {
+        initResult = await this.paymentService.initializeCheckout(userId);
+      } catch (error) {
+        console.log("Checkout error:", error);
+        throw error;
+      }
+
+      console.log("Checkout result:", initResult);
 
       return res.status(HTTPSTATUS.OK).json({
         message: "Checkout initialized successfully",

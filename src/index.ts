@@ -30,8 +30,9 @@ const startServer = async () => {
         app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
         app.use(cors({
-            origin: config.APP_ORIGIN,
-            credentials: true
+            origin: [config.APP_ORIGIN, "http://localhost:5173"],
+            credentials: true,
+            exposedHeaders: ["Set-Cookie"],
         }));
 
         app.use(helmet());
