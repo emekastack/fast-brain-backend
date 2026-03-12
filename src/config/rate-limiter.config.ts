@@ -12,20 +12,21 @@ export const initializeRateLimiters = () => {
             sendCommand: (...args: string[]) => redisClient.sendCommand(args),
         }),
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100,
-        message: "Too many requests from this IP, please try again after 15 minutes",
+        max: 500,
+        message: { error: "Too many requests, please try again later" },
         legacyHeaders: false,
         standardHeaders: true,
+        skip: (req) => req.path === '/', // Skip rate limit for health check
     });
 
-    // Auth rate limiter
+    // Auth rate limiter - more lenient for user convenience
     authRateLimiter = rateLimit({
         store: new RedisStore({
             sendCommand: (...args: string[]) => redisClient.sendCommand(args),
         }),
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100,
-        message: "Too many authentication attempts from this IP, please try again after 15 minutes",
+        max: 50,
+        message: { error: "Too many authentication attempts, please try again later" },
         legacyHeaders: false,
         standardHeaders: true,
     });

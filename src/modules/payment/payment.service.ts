@@ -131,6 +131,28 @@ export class PaymentService {
         reused: false,
       };
     }
+
+    // Create new payment when no existing pending payment
+    const payment = await PaymentModel.create({
+      user: userId,
+      course: courseIds,
+      amount: cart.totalPrice,
+      status: "pending",
+      paymentMethod: "paystack",
+      reference: newReference,
+    });
+
+    const paymentData = await this.initializeTransaction(
+      user.email,
+      cart.totalPrice,
+      newReference,
+      { userId, courseIds }
+    );
+
+    return {
+      checkoutUrl: paymentData.data.authorization_url,
+      reused: false,
+    };
   }
 
   // Verify Payment
